@@ -1,0 +1,59 @@
+DECLARE @tableHTML VARCHAR(MAX) ;           
+               SET @tableHTML = 
+                    N'<H1>Currently Available Free Disk Space Status on ISB & BAGH</H1>'+
+                    N'<table border="1" style="width:50%" align = top left>' +
+                    N'<tr> <th>Server Name</th>	<th>Drive Name</th>	<th>FREE SPACE IN GB</th> </tr>' 
+                    +
+                    CAST(
+                        (
+                            SELECT td = [Server_Name],'',
+                             'td/@bgcolor' = CASE 
+												WHEN [Spaces_In_GB] < 10 THEN 'Red'
+												WHEN [Spaces_In_GB] < 20 THEN 'CornflowerBlue'
+												ELSE 'white'
+											 END,
+                                   td = [Drives],'',
+                              'td/@bgcolor' = CASE 
+												WHEN [Spaces_In_GB] < 10 THEN 'Red'
+												WHEN [Spaces_In_GB] < 20 THEN 'CornflowerBlue'
+												ELSE 'white'
+											 END,      
+                                   td = [Spaces_In_GB]
+            
+                            FROM   
+( 
+select * from [db-srv].[mis_db].dbo.fixddrives
+ union
+ select * from [db-srv1].[mis_db].dbo.fixddrives
+ union
+ select * from [vsubmission].[mis_db].dbo.fixddrives
+union
+select * from [db-srv3].[mis_db].dbo.fixddrives
+union
+select * from [db-srv6].[mis_db].dbo.fixddrives
+union
+select * from [db-srv8].[mis_db].dbo.fixddrives
+union
+select * from [db-srv9].[mis_db].dbo.fixddrives
+ union
+ select * from [vsub-srv].[mis_db].dbo.fixddrives
+--union
+--select * from [dev-test].[mis_db].dbo.fixddrives
+union
+ select * from [db5].[MTBC_EMR_MEDICAL_DB].dbo.fixddrives
+union 
+ select * from fixddrives
+ ) as oq
+	    ORDER BY 2 ASC
+                                                      
+                                   FOR XML PATH('tr'),
+                                   TYPE
+                        ) AS VARCHAR(MAX)
+                    ) +
+                    N'</table>' ; 
+                
+EXEC msdb.dbo.sp_send_dbmail @recipients='DATABASE@MTBC.COM', 
+	@profile_name='DB-SRV2', 
+    @subject = 'Disk Spaces Usage',  
+    @body = @tableHTML,  
+    @body_format = 'HTML' ;
