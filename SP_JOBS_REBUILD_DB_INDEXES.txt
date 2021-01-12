@@ -1,0 +1,138 @@
+----------[SP_JOBS_REBUILD_DB_INDEXES]-----------
+
+CREATE PROCEDURE [dbo].[SP_JOBS_REBUILD_DB_INDEXES]                
+  
+    -- execute [SP_JOBS_REBUILD_DB_INDEXES]  
+  
+ -- sp_helptext [SP_JOBS_REBUILD_DB_INDEXES]  
+  
+  
+AS                 
+  
+SET NOCOUNT ON;                
+  
+DECLARE @objectname varchar(255);                
+  
+DECLARE @objectid int;                
+  
+DECLARE @indexid int;                
+  
+DECLARE @partitioncount bigint;                
+  
+DECLARE @schemaname varchar(130);                
+  
+DECLARE @indexname varchar(130);                
+  
+DECLARE @partitionnum bigint;                
+  
+DECLARE @partitions bigint;                
+  
+DECLARE @frag float;                
+  
+DECLARE @command varchar(4000);                
+  
+DECLARE @dbid smallint;                
+  
+            
+  
+SET @dbid = DB_ID();                
+  
+SELECT  object_name([object_id]) AS objectname,[object_id] AS objectid,index_id AS indexid,            
+partition_number AS partitionnum,avg_fragmentation_in_percent AS frag, page_count                
+INTO #work_to_do             
+FROM sys.dm_db_index_physical_stats (@dbid, NULL, NULL , NULL, N'LIMITED')            
+where index_id > 0 and index_level=0 and avg_fragmentation_in_percent>20      
+AND page_count >1000              
+  
+   
+DECLARE partitions CURSOR FOR SELECT objectid,indexid, partitionnum,frag FROM #work_to_do;                
+  
+      
+  
+-- Open the cursor.                
+  
+      
+  
+OPEN partitions;                
+     
+  
+-- Loop through the partitions.                
+     
+  
+WHILE (1=1)                
+  
+    BEGIN                
+  
+        FETCH NEXT                
+  
+           FROM partitions                
+  
+           INTO @objectid, @indexid, @partitionnum, @frag;                
+  
+        IF @@FETCH_STATUS < 0 BREAK;                
+  
+        SELECT @objectname = QUOTENAME(o.name), @schemaname = QUOTENAME(s.name)                
+  
+        FROM sys.objects AS o                
+  
+        JOIN sys.schemas as s ON s.schema_id = o.schema_id                
+  
+        WHERE o.object_id = @objectid;                
+  
+        SELECT @indexname = QUOTENAME(name)                
+  
+        FROM sys.indexes                
+  
+        WHERE  object_id = @objectid AND index_id = @indexid;                
+  
+        SELECT @partitioncount = count (*)                
+  
+        FROM sys.partitions                
+  
+        WHERE object_id = @objectid AND index_id = @indexid;                
+  
+    
+  
+-- 30 is an arbitrary decision point at which to switch between reorganizing and rebuilding.                
+  
+        ---IF @frag < 30.0                
+  
+ SET @command = N'ALTER INDEX ' + @indexname + N' ON ' + @schemaname + N'.' + @objectname + N' REBUILD with (online =on)';                  
+  
+    
+  
+       -- IF @frag > 30.0                
+  
+          --  SET @command = N'ALTER INDEX ' + @indexname + N' ON ' + @schemaname + N'.' + @objectname + N' REBUILD';                
+  
+        --IF @partitioncount > 1                
+  
+            --SET @command = @command + N' PARTITION=' + CAST(@partitionnum AS nvarchar(10));                
+  
+      
+  
+begin try          
+  
+EXEC (@command);                
+  
+end try                        
+  
+begin catch          
+  
+select ERROR_MESSAGE() Error_Message          
+  
+end catch        --PRINT @command;                
+  
+        --EXEC sp_sqlexec @command;                
+  
+END                
+  
+-- Close and deallocate the cursor.                
+  
+CLOSE partitions;                
+  
+DEALLOCATE partitions;                
+  
+-- Drop the temporary table.                
+  
+DROP TABLE #work_to_do;  
