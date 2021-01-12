@@ -57,3 +57,19 @@ EXEC msdb.dbo.sp_send_dbmail @recipients='DATABASE@MTBC.COM',
     @subject = 'Disk Spaces Usage',  
     @body = @tableHTML,  
     @body_format = 'HTML' ;
+
+
+-----------------------------
+
+CREATE PROCEDURE fixd  
+AS  
+BEGIN  
+ --CREATE TABLE fixddrives(Server_Name varchar(20),Drives VARCHAR(20),Spaces_In_GB VARCHAR(20))    
+CREATE TABLE #fixddrives(Drives VARCHAR(20),Spaces VARCHAR(20))     
+Insert INTO  #fixddrives  
+EXEC XP_FIXEDDRIVES  
+DELETE FROM fixddrives  
+INSERT INTO fixddrives  
+SELECT @@SERVERNAME AS Server_Name,Drives,CAST(Spaces/1024 AS VARCHAR)  AS Spaces FROM #fixddrives  
+ --select * from fixddrives  
+END  
