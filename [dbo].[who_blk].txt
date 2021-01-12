@@ -1,0 +1,33 @@
+CREATE  procedure [dbo].[who_blk]              
+as              
+ create  table #temptab              
+ (              
+ spid   int,              
+ ecid  int,                
+ status  varchar(100),               
+ loginame varchar(100),              
+ hostname varchar(100),              
+ blk  int,              
+ dbname  varchar(100),              
+ cmd  varchar(100),              
+ request_id int               
+ )              
+ --              
+ insert into #temptab execute sp_who              
+ --              
+ select *               
+ from  #temptab              
+ where blk <> 0              
+ and  spid<>blk              
+ --              
+ select *               
+ from  #temptab              
+ where blk <> 0              
+ --              
+ select *               
+ from  #temptab              
+ --              
+ drop  table #temptab              
+--              
+-- temptab              
+-- drop procedure dbo.who_blk 
